@@ -4,8 +4,6 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.util.TreeSet;
-import java.util.Vector;
 
 public class MyFakebookOracle extends FakebookOracle {
 	
@@ -17,7 +15,18 @@ public class MyFakebookOracle extends FakebookOracle {
 	// You must refer to the following variables for the corresponding tables in your database
 	String cityTableName = null;
 	String userTableName = null;
-    
+	String friendsTableName = null;
+	String currentCityTableName = null;
+	String hometownCityTableName = null;
+	String programTableName = null;
+	String educationTableName = null;
+	String eventTableName = null;
+	String participantTableName = null;
+	String albumTableName = null;
+	String photoTableName = null;
+	String coverPhotoTableName = null;
+	String tagTableName = null;
+	
 	
 	// DO NOT modify this constructor
 	public MyFakebookOracle(String u, Connection c) {
@@ -27,6 +36,15 @@ public class MyFakebookOracle extends FakebookOracle {
 		// You will use the following tables in your Java code
 		cityTableName = prefix+dataType+"_CITIES";
 		userTableName = prefix+dataType+"_USERS";
+		friendsTableName = prefix+dataType+"_FRIENDS";
+		currentCityTableName = prefix+dataType+"_USER_CURRENT_CITY";
+		hometownCityTableName = prefix+dataType+"_USER_HOMETOWN_CITY";
+		programTableName = prefix+dataType+"_PROGRAMS";
+		educationTableName = prefix+dataType+"_EDUCATION";
+		eventTableName = prefix+dataType+"_USER_EVENTS";
+		albumTableName = prefix+dataType+"_ALBUMS";
+		photoTableName = prefix+dataType+"_PHOTOS";
+		tagTableName = prefix+dataType+"_TAGS";
 	}
 	
 	
@@ -106,8 +124,8 @@ public class MyFakebookOracle extends FakebookOracle {
 	// (3) The most common last name, and the number of times it appears (if there is a tie, include all in result)
 	//
 	public void findNameInfo() throws SQLException { // Query1
-        // Find the following information from your database and store the information as shown 
-        this.longestLastNames.add("JohnJacobJingleheimerSchmidt");
+        // Find the following information from your database and store the information as shown
+		this.longestLastNames.add("JohnJacobJingleheimerSchmidt");
 		this.shortestLastNames.add("Ng");
 		this.shortestLastNames.add("Fu");
 		this.shortestLastNames.add("Wu");
