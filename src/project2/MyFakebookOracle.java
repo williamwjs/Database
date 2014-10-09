@@ -212,7 +212,7 @@ public class MyFakebookOracle extends FakebookOracle {
 	// Find the top-n photos based on the number of tagged users
 	// If there are ties, choose the photo with the smaller numeric PhotoID first
 	// 
-	public void findPhotosWithMostTags(int n) throws SQLException { //????????????
+	public void findPhotosWithMostTags(int n) throws SQLException {
 		/*String photoId = "1234567";
 		String albumId = "123456789";
 		String albumName = "album1";
@@ -350,9 +350,37 @@ public class MyFakebookOracle extends FakebookOracle {
 	// events in that city.  If there is a tie, return the names of all of the (tied) cities.
 	//
 	public void findEventCities() throws SQLException {
-		this.eventCount = 12;
+		/*this.eventCount = 12;
 		this.popularCityNames.add("Ann Arbor");
-		this.popularCityNames.add("Ypsilanti");
+		this.popularCityNames.add("Ypsilanti");*/
+        Statement stmt = oracleConnection.createStatement(ResultSet.TYPE_SCROLL_INSENSITIVE,
+                ResultSet.CONCUR_READ_ONLY);
+        ResultSet rst = stmt.executeQuery("CREATE VIEW numcity AS\n" +
+                "SELECT event_city_id, COUNT(*) AS city_events\n" +
+                "FROM yjtang.PUBLIC_USER_EVENTS\n" +
+                "GROUP BY event_city_id;\n" +
+                "\n" +
+                "SELECT C.city_name, N.city_events\n" +
+                "FROM yjtang.PUBLIC_CITIES C, numcity N,\n" +
+                "(SELECT MAX(city_events) AS maxcity FROM numcity) M\n" +
+                "WHERE N.city_events = M. maxcity AND N.event_city_id = C.city_id;\n" +
+                "\n" +
+                "DROP VIEW numcity;");
+
+        try {
+            while (rst.next()) {
+                this.popularCityNames.add(rst.getString(1));
+                this.eventCount = rst.getInt(2);
+            }
+        } catch (SQLException e) { /* print out an error message.*/
+
+        }
+        finally {
+            closeEverything(rst, stmt);
+        }
+
+        rst.close();
+        stmt.close();
 	}
 	
 	
