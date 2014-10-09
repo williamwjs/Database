@@ -1,5 +1,10 @@
 package project2;
 
+/**
+ * Created by Jiashuo Wang and Jun Yin
+ * Uniqname: willwjs, junyin
+ */
+
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
