@@ -711,6 +711,7 @@ public class MyFakebookOracle extends FakebookOracle {
 	public void findEventCities() throws SQLException {
         Statement stmt = oracleConnection.createStatement(ResultSet.TYPE_SCROLL_INSENSITIVE,
                 ResultSet.CONCUR_READ_ONLY);
+        //Get the city and the number of events it holds
         /**************************************************************************************
          CREATE OR REPLACE VIEW numcity AS
          SELECT event_city_id, COUNT(*) AS city_events
@@ -723,6 +724,7 @@ public class MyFakebookOracle extends FakebookOracle {
                 "GROUP BY event_city_id");
         /*************************************************************************************/
 
+        //Find the name of all the cities which hold the maximun number of events
         /**************************************************************************************
          SELECT C.city_name, N.city_events
          FROM yjtang.PUBLIC_CITIES C, numcity N,
