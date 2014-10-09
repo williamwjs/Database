@@ -164,28 +164,24 @@ public class MyFakebookOracle extends FakebookOracle {
             closeEverything(rst, stmt);
         }
 
-        rst.close();
-
         // ------------shortest last time------------------
         /**************************************************************************************
          select distinct LAST_NAME from yjtang.public_USERS
          where length( LAST_NAME ) =
          ( select MIN(length( LAST_NAME )) from yjtang.public_USERS );
         */
-        ResultSet rst1 = stmt.executeQuery("select distinct LAST_NAME from " + userTableName +
+        rst = stmt.executeQuery("select distinct LAST_NAME from " + userTableName +
                 " where length( LAST_NAME ) = " +
                 "(select MIN(length( LAST_NAME )) from " + userTableName+")");
         /*************************************************************************************/
 
         try {
-            while (rst1.next()) {
-                this.shortestLastNames.add(rst1.getString(1));
+            while (rst.next()) {
+                this.shortestLastNames.add(rst.getString(1));
             }
         } catch (SQLException e) { /* print out an error message.*/
-            closeEverything(rst1, stmt);
+            closeEverything(rst, stmt);
         }
-
-        rst1.close();
 
         // ------------most common last name------------------
         /**************************************************************************************
@@ -193,7 +189,7 @@ public class MyFakebookOracle extends FakebookOracle {
          select LAST_NAME, count(*) as num from yjtang.public_USERS
          group by LAST_NAME;
         */
-        ResultSet rst3 = stmt.executeQuery("create or replace view CountNum as select LAST_NAME, "
+        rst = stmt.executeQuery("create or replace view CountNum as select LAST_NAME, "
                 + "count(*) as num from " + userTableName +" group by LAST_NAME");
         /*************************************************************************************/
 
@@ -201,24 +197,21 @@ public class MyFakebookOracle extends FakebookOracle {
          select LAST_NAME from CountNum, (select MAX(num) as N from CountNum) A
          where num = A.N;
         */
-        ResultSet rst4 = stmt.executeQuery("select LAST_NAME,num from CountNum, (select MAX(num) as N "
+        rst = stmt.executeQuery("select LAST_NAME,num from CountNum, (select MAX(num) as N "
                 + "from CountNum) A where num = A.N");
         /*************************************************************************************/
 
         try {
-            while (rst4.next()) {
-                this.mostCommonLastNames.add(rst4.getString(1));
-                this.mostCommonLastNamesCount = rst4.getInt(2);
+            while (rst.next()) {
+                this.mostCommonLastNames.add(rst.getString(1));
+                this.mostCommonLastNamesCount = rst.getInt(2);
             }
-            ResultSet rst5 = stmt.executeQuery("Drop view CountNum");
-            rst5.close();
+            rst = stmt.executeQuery("Drop view CountNum");
         } catch (SQLException e) { // print out an error message.
-            rst4.close();
-            closeEverything(rst3, stmt);
+            closeEverything(rst, stmt);
         }
 
-        rst4.close();
-        rst3.close();
+        rst.close();
         stmt.close();
 	}
 	
