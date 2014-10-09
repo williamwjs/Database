@@ -162,24 +162,30 @@ public class MyFakebookOracle extends FakebookOracle {
 	// the constraint that user1_id < user2_id
 	//
 	public void lonelyFriends() throws SQLException {
-		// Find the following information from your database and store the information as shown 
-		/*this.lonelyFriends.add(new UserInfo(10L, "Billy", "SmellsFunny"));
-		this.lonelyFriends.add(new UserInfo(11L, "Jenny", "BadBreath"));
-		this.countLonelyFriends = 2;*/
         Statement stmt = oracleConnection.createStatement(ResultSet.TYPE_SCROLL_INSENSITIVE,
                 ResultSet.CONCUR_READ_ONLY);
+        /**************************************************************************************
+         SELECT U.user_id, U.first_name, U.last_name
+         FROM yjtang.PUBLIC_USERS U
+         MINUS
+         SELECT U.user_id, U.first_name, U.last_name
+         FROM yjtang.PUBLIC_USERS U, yjtang.PUBLIC_FRIENDS F
+         WHERE U.user_id = F.user1_id OR U.user_id = F.user2_id;
+        */
         ResultSet rst = stmt.executeQuery("SELECT U.user_id, U.first_name, U.last_name " +
                 "FROM " + userTableName + " U " +
                 "MINUS " +
                 "SELECT U.user_id, U.first_name, U.last_name " +
                 "FROM " + userTableName + " U, " + friendsTableName + " F " +
                 "WHERE U.user_id = F.user1_id OR U.user_id = F.user2_id");
+        /*************************************************************************************/
 
         try {
             int count = 0;
 
             while (rst.next()) {
-                this.lonelyFriends.add(new UserInfo(rst.getLong(1), rst.getString(2), rst.getString(3)));
+                this.lonelyFriends.add(new UserInfo(rst.getLong(1), rst.getString(2),
+                        rst.getString(3)));
                 count++;
             }
             this.countLonelyFriends = count;
@@ -210,20 +216,25 @@ public class MyFakebookOracle extends FakebookOracle {
 	// If there are ties, choose the photo with the smaller numeric PhotoID first
 	// 
 	public void findPhotosWithMostTags(int n) throws SQLException {
-		/*String photoId = "1234567";
-		String albumId = "123456789";
-		String albumName = "album1";
-		String photoCaption = "caption1";
-		String photoLink = "http://google.com";
-		PhotoInfo p = new PhotoInfo(photoId, albumId, albumName, photoCaption, photoLink);
-		TaggedPhotoInfo tp = new TaggedPhotoInfo(p);
-		tp.addTaggedUser(new UserInfo(12345L, "taggedUserFirstName1", "taggedUserLastName1"));
-		tp.addTaggedUser(new UserInfo(12345L, "taggedUserFirstName2", "taggedUserLastName2"));
-		this.photosWithMostTags.add(tp);*/
         Statement stmt = oracleConnection.createStatement(ResultSet.TYPE_SCROLL_INSENSITIVE,
                     ResultSet.CONCUR_READ_ONLY);
-        ResultSet rst = stmt.executeQuery("SELECT P.photo_id, P.album_id, A.album_name, P.photo_caption, P.photo_link, U.user_id, U.first_name, U.last_name, C.tag_count\n" +
-                "FROM " + photoTableName + " P, " + albumTableName + " A, " + userTableName + " U, " + tagTableName + " T,\n" +
+        /**************************************************************************************
+         SELECT P.photo_id, P.album_id, A.album_name, P.photo_caption, P.photo_link, U.user_id, U.first_name, U.last_name, C.tag_count
+         FROM yjtang.PUBLIC_PHOTOS P, yjtang.PUBLIC_ALBUMS A, yjtang.PUBLIC_USERS U, yjtang.PUBLIC_TAGS T,
+         ( SELECT P.photo_id, B.tag_count
+           FROM yjtang.PUBLIC_PHOTOS P,
+           ( SELECT tag_photo_id, COUNT(*) AS tag_count
+             FROM yjtang.PUBLIC_TAGS
+             GROUP BY tag_photo_id
+             ORDER BY tag_count DESC, tag_photo_id ASC) B
+           WHERE ROWNUM <= 5 AND B.tag_photo_id = P.photo_id) C
+         WHERE C.photo_id = P.photo_id AND P.album_id = A.album_id AND T.tag_photo_id = P.photo_id AND U.user_id = T.tag_subject_id;
+         */
+        ResultSet rst = stmt.executeQuery("SELECT P.photo_id, P.album_id, " +
+                "A.album_name, P.photo_caption, P.photo_link, U.user_id, " +
+                "U.first_name, U.last_name, C.tag_count\n" +
+                "FROM " + photoTableName + " P, " + albumTableName +
+                " A, " + userTableName + " U, " + tagTableName + " T,\n" +
                 "(SELECT P.photo_id, B.tag_count\n" +
                 "FROM " + photoTableName + " P, \n" +
                 "(SELECT tag_photo_id, COUNT(*) AS tag_count\n" +
@@ -231,7 +242,8 @@ public class MyFakebookOracle extends FakebookOracle {
                 "GROUP BY tag_photo_id\n" +
                 "ORDER BY tag_count DESC, tag_photo_id ASC) B\n" +
                 "WHERE ROWNUM <= " + n + " AND B.tag_photo_id = P.photo_id) C\n" +
-                "WHERE C.photo_id = P.photo_id AND P.album_id = A.album_id AND T.tag_photo_id = P.photo_id AND U.user_id = T.tag_subject_id");
+                "WHERE C.photo_id = P.photo_id AND P.album_id = A.album_id " +
+                "AND T.tag_photo_id = P.photo_id AND U.user_id = T.tag_subject_id");
 
         try {
             while (rst.next()) {
@@ -346,11 +358,11 @@ public class MyFakebookOracle extends FakebookOracle {
          CREATE OR REPLACE VIEW sharefriend AS
          SELECT T.user1_id, T.user2_id, T.friend_id
          FROM totalfriend T,
-         (SELECT user1_id, user2_id
-         FROM totalfriend
-         MINUS
-         SELECT user1_id, user2_id
-         FROM yjtang.PUBLIC_FRIENDS) D
+         ( SELECT user1_id, user2_id
+           FROM totalfriend
+           MINUS
+           SELECT user1_id, user2_id
+           FROM yjtang.PUBLIC_FRIENDS) D
          WHERE T.user1_id = D.user1_id AND T.user2_id = D.user2_id;
         */
         rst = stmt.executeQuery("CREATE OR REPLACE VIEW sharefriend AS\n" +
@@ -367,21 +379,21 @@ public class MyFakebookOracle extends FakebookOracle {
         /**************************************************************************************
          SELECT S.user1_id, U1.first_name, U1.last_name, S.user2_id, U2.first_name, U2.last_name, S.friend_id, U3.first_name, U3.last_name, C.countshare
          FROM sharefriend S, yjtang.PUBLIC_USERS U1, yjtang.PUBLIC_USERS U2, yjtang.PUBLIC_USERS U3,
-         (SELECT user1_id, user2_id, countshare
-         FROM
-         (SELECT user1_id, user2_id, COUNT(*) AS countshare
-         FROM sharefriend
-         GROUP BY user1_id, user2_id
-         ORDER BY countshare DESC, user1_id ASC, user2_id ASC)
-         WHERE ROWNUM <= 2
-         ) C
+         ( SELECT user1_id, user2_id, countshare
+           FROM
+           (  SELECT user1_id, user2_id, COUNT(*) AS countshare
+              FROM sharefriend
+              GROUP BY user1_id, user2_id
+              ORDER BY countshare DESC, user1_id ASC, user2_id ASC)
+           WHERE ROWNUM <= 2
+           ) C
          WHERE C.user1_id = S.user1_id AND C.user2_id = S.user2_id AND U1.user_id = S.user1_id AND U2.user_id = S.user2_id AND U3.user_id = S.friend_id;
         */
         rst = stmt.executeQuery("SELECT S.user1_id, U1.first_name, U1.last_name, " +
                 "S.user2_id, U2.first_name, U2.last_name, " +
                 "S.friend_id, U3.first_name, U3.last_name, C.countshare\n" +
-                "FROM sharefriend S, " + userTableName + " U1, " + userTableName + " U2, "
-                + userTableName + " U3, \n" +
+                "FROM sharefriend S, " + userTableName + " U1, " + userTableName +
+                " U2, " + userTableName + " U3, \n" +
                 "(SELECT user1_id, user2_id, countshare\n" +
                 "FROM\n" +
                 "(SELECT user1_id, user2_id, COUNT(*) AS countshare\n" +
@@ -440,19 +452,31 @@ public class MyFakebookOracle extends FakebookOracle {
 	// events in that city.  If there is a tie, return the names of all of the (tied) cities.
 	//
 	public void findEventCities() throws SQLException {
-		/*this.eventCount = 12;
-		this.popularCityNames.add("Ann Arbor");
-		this.popularCityNames.add("Ypsilanti");*/
         Statement stmt = oracleConnection.createStatement(ResultSet.TYPE_SCROLL_INSENSITIVE,
                 ResultSet.CONCUR_READ_ONLY);
-        ResultSet rst0 = stmt.executeQuery("CREATE OR REPLACE VIEW numcity AS\n" +
+        /**************************************************************************************
+         CREATE OR REPLACE VIEW numcity AS
+         SELECT event_city_id, COUNT(*) AS city_events
+         FROM yjtang.PUBLIC_USER_EVENTS
+         GROUP BY event_city_id;
+        */
+        ResultSet rst = stmt.executeQuery("CREATE OR REPLACE VIEW numcity AS\n" +
                 "SELECT event_city_id, COUNT(*) AS city_events\n" +
                 "FROM " + eventTableName + "\n" +
                 "GROUP BY event_city_id");
-        ResultSet rst = stmt.executeQuery("SELECT C.city_name, N.city_events\n" +
+        /*************************************************************************************/
+
+        /**************************************************************************************
+         SELECT C.city_name, N.city_events
+         FROM yjtang.PUBLIC_CITIES C, numcity N,
+         ( SELECT MAX(city_events) AS maxcity FROM numcity) M
+         WHERE N.city_events = M. maxcity AND N.event_city_id = C.city_id;
+        */
+        rst = stmt.executeQuery("SELECT C.city_name, N.city_events\n" +
                 "FROM " + cityTableName + " C, numcity N,\n" +
                 "(SELECT MAX(city_events) AS maxcity FROM numcity) M\n" +
                 "WHERE N.city_events = M. maxcity AND N.event_city_id = C.city_id");
+        /*************************************************************************************/
 
         try {
             while (rst.next()) {
@@ -461,14 +485,11 @@ public class MyFakebookOracle extends FakebookOracle {
             }
         } catch (SQLException e) { /* print out an error message.*/
             closeEverything(rst, stmt);
-            rst0.close();
         }
 
-        ResultSet rst00 = stmt.executeQuery("DROP VIEW numcity");
-        rst00.close();
+        rst = stmt.executeQuery("DROP VIEW numcity");
 
         rst.close();
-        rst0.close();
         stmt.close();
 	}
 	
