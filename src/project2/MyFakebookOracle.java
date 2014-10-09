@@ -142,14 +142,84 @@ public class MyFakebookOracle extends FakebookOracle {
 	// (3) The most common last name, and the number of times it appears (if there is a tie, include all in result)
 	//
 	public void findNameInfo() throws SQLException { // Query1
-        // Find the following information from your database and store the information as shown
-		this.longestLastNames.add("JohnJacobJingleheimerSchmidt");
-		this.shortestLastNames.add("Ng");
-		this.shortestLastNames.add("Fu");
-		this.shortestLastNames.add("Wu");
-		this.mostCommonLastNames.add("Wang");
-		this.mostCommonLastNames.add("Smith");
-		this.mostCommonLastNamesCount = 10;
+        Statement stmt = oracleConnection.createStatement(ResultSet.TYPE_SCROLL_INSENSITIVE,
+                ResultSet.CONCUR_READ_ONLY);
+
+        //------------longest last time------------------
+        /**************************************************************************************
+         select distinct LAST_NAME from yjtang.public_USERS
+         where length( LAST_NAME ) =
+         ( select MAX(length( LAST_NAME )) from yjtang.public_USERS );
+         */
+        ResultSet rst = stmt.executeQuery("select distinct LAST_NAME from " + userTableName +
+                " where length( LAST_NAME ) = " +
+                "(select MAX(length( LAST_NAME )) from " + userTableName+")");
+        /*************************************************************************************/
+
+        try {
+            while (rst.next()) {
+                this.longestLastNames.add(rst.getString(1));
+            }
+        } catch (SQLException e) { /* print out an error message.*/
+            closeEverything(rst, stmt);
+        }
+
+        rst.close();
+
+        // ------------shortest last time------------------
+        /**************************************************************************************
+         select distinct LAST_NAME from yjtang.public_USERS
+         where length( LAST_NAME ) =
+         ( select MIN(length( LAST_NAME )) from yjtang.public_USERS );
+        */
+        ResultSet rst1 = stmt.executeQuery("select distinct LAST_NAME from " + userTableName +
+                " where length( LAST_NAME ) = " +
+                "(select MIN(length( LAST_NAME )) from " + userTableName+")");
+        /*************************************************************************************/
+
+        try {
+            while (rst1.next()) {
+                this.shortestLastNames.add(rst1.getString(1));
+            }
+        } catch (SQLException e) { /* print out an error message.*/
+            closeEverything(rst1, stmt);
+        }
+
+        rst1.close();
+
+        // ------------most common last name------------------
+        /**************************************************************************************
+         create view CountNum as
+         select LAST_NAME, count(*) as num from yjtang.public_USERS
+         group by LAST_NAME;
+        */
+        ResultSet rst3 = stmt.executeQuery("create or replace view CountNum as select LAST_NAME, "
+                + "count(*) as num from " + userTableName +" group by LAST_NAME");
+        /*************************************************************************************/
+
+        /**************************************************************************************
+         select LAST_NAME from CountNum, (select MAX(num) as N from CountNum) A
+         where num = A.N;
+        */
+        ResultSet rst4 = stmt.executeQuery("select LAST_NAME,num from CountNum, (select MAX(num) as N "
+                + "from CountNum) A where num = A.N");
+        /*************************************************************************************/
+
+        try {
+            while (rst4.next()) {
+                this.mostCommonLastNames.add(rst4.getString(1));
+                this.mostCommonLastNamesCount = rst4.getInt(2);
+            }
+            ResultSet rst5 = stmt.executeQuery("Drop view CountNum");
+            rst5.close();
+        } catch (SQLException e) { // print out an error message.
+            rst4.close();
+            closeEverything(rst3, stmt);
+        }
+
+        rst4.close();
+        rst3.close();
+        stmt.close();
 	}
 	
 	@Override
