@@ -320,7 +320,7 @@ public class MyFakebookOracle extends FakebookOracle {
          FROM yjtang.PUBLIC_USERS U, yjtang.PUBLIC_FRIENDS F
          WHERE U.user_id = F.user2_id;
         */
-        ResultSet rst0 = stmt.executeQuery("CREATE OR REPLACE VIEW getfriend AS\n" +
+        ResultSet rst = stmt.executeQuery("CREATE OR REPLACE VIEW getfriend AS\n" +
                 "SELECT U.user_id, F.user2_id AS friend_id\n" +
                 "FROM " + userTableName + " U, " + friendsTableName + " F\n" +
                 "WHERE U.user_id = F.user1_id\n" +
@@ -336,7 +336,7 @@ public class MyFakebookOracle extends FakebookOracle {
          FROM getfriend G1, getfriend G2
          WHERE G1.friend_id = G2.friend_id AND G1.user_id < G2.user_id;
         */
-        ResultSet rst1 = stmt.executeQuery("CREATE OR REPLACE VIEW totalfriend AS\n" +
+        rst = stmt.executeQuery("CREATE OR REPLACE VIEW totalfriend AS\n" +
                 "SELECT G1.user_id AS user1_id, G2.user_id AS user2_id, G1.friend_id\n" +
                 "FROM getfriend G1, getfriend G2\n" +
                 "WHERE G1.friend_id = G2.friend_id AND G1.user_id < G2.user_id");
@@ -353,7 +353,7 @@ public class MyFakebookOracle extends FakebookOracle {
          FROM yjtang.PUBLIC_FRIENDS) D
          WHERE T.user1_id = D.user1_id AND T.user2_id = D.user2_id;
         */
-        ResultSet rst2 = stmt.executeQuery("CREATE OR REPLACE VIEW sharefriend AS\n" +
+        rst = stmt.executeQuery("CREATE OR REPLACE VIEW sharefriend AS\n" +
                 "SELECT T.user1_id, T.user2_id, T.friend_id\n" +
                 "FROM totalfriend T,\n" +
                 "(SELECT user1_id, user2_id\n" +
@@ -377,7 +377,7 @@ public class MyFakebookOracle extends FakebookOracle {
          ) C
          WHERE C.user1_id = S.user1_id AND C.user2_id = S.user2_id AND U1.user_id = S.user1_id AND U2.user_id = S.user2_id AND U3.user_id = S.friend_id;
         */
-        ResultSet rst = stmt.executeQuery("SELECT S.user1_id, U1.first_name, U1.last_name, " +
+        rst = stmt.executeQuery("SELECT S.user1_id, U1.first_name, U1.last_name, " +
                 "S.user2_id, U2.first_name, U2.last_name, " +
                 "S.friend_id, U3.first_name, U3.last_name, C.countshare\n" +
                 "FROM sharefriend S, " + userTableName + " U1, " + userTableName + " U2, "
@@ -407,20 +407,14 @@ public class MyFakebookOracle extends FakebookOracle {
                 this.suggestedFriendsPairs.add(p);
             }
         } catch (SQLException e) { /* print out an error message.*/
-            rst2.close();
-            rst1.close();
-            rst0.close();
             closeEverything(rst, stmt);
         }
 
-        rst2 = stmt.executeQuery("DROP VIEW sharefriend");
-        rst1 = stmt.executeQuery("DROP VIEW totalfriend");
-        rst0 = stmt.executeQuery("DROP VIEW getfriend");
+        rst = stmt.executeQuery("DROP VIEW sharefriend");
+        rst = stmt.executeQuery("DROP VIEW totalfriend");
+        rst = stmt.executeQuery("DROP VIEW getfriend");
 
         rst.close();
-        rst2.close();
-        rst1.close();
-        rst0.close();
         stmt.close();
 	}
 	
