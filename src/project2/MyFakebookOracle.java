@@ -184,9 +184,6 @@ public class MyFakebookOracle extends FakebookOracle {
             }
             this.countLonelyFriends = count;
         } catch (SQLException e) { /* print out an error message.*/
-
-        }
-        finally {
             closeEverything(rst, stmt);
         }
 
@@ -249,9 +246,6 @@ public class MyFakebookOracle extends FakebookOracle {
                 this.photosWithMostTags.add(tp);
             }
         } catch (SQLException e) { /* print out an error message.*/
-
-        }
-        finally {
             closeEverything(rst, stmt);
         }
 
