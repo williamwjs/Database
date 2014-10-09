@@ -355,7 +355,7 @@ public class MyFakebookOracle extends FakebookOracle {
 		this.popularCityNames.add("Ypsilanti");*/
         Statement stmt = oracleConnection.createStatement(ResultSet.TYPE_SCROLL_INSENSITIVE,
                 ResultSet.CONCUR_READ_ONLY);
-        stmt.executeQuery("CREATE VIEW numcity AS\n" +
+        ResultSet rst0 = stmt.executeQuery("CREATE VIEW numcity AS\n" +
                 "SELECT event_city_id, COUNT(*) AS city_events\n" +
                 "FROM " + eventTableName + "\n" +
                 "GROUP BY event_city_id");
@@ -369,15 +369,18 @@ public class MyFakebookOracle extends FakebookOracle {
                 this.popularCityNames.add(rst.getString(1));
                 this.eventCount = rst.getInt(2);
             }
-            stmt.executeQuery("DROP VIEW numcity");
+            ResultSet rst00 = stmt.executeQuery("DROP VIEW numcity");
+            rst00.close();
         } catch (SQLException e) { /* print out an error message.*/
 
         }
         finally {
             closeEverything(rst, stmt);
+            rst0.close();
         }
 
         rst.close();
+        rst0.close();
         stmt.close();
 	}
 	
