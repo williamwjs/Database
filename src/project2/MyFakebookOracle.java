@@ -308,7 +308,91 @@ public class MyFakebookOracle extends FakebookOracle {
 	//
 	@Override
 	public void suggestFriendsByMutualFriends(int n) throws SQLException {
-		Long user1_id = 123L;
+        Statement stmt = oracleConnection.createStatement(ResultSet.TYPE_SCROLL_INSENSITIVE,
+                ResultSet.CONCUR_READ_ONLY);
+        /**************************************************************************************
+         CREATE OR REPLACE VIEW getfriend AS
+         SELECT U.user_id, F.user2_id AS friend_id
+         FROM yjtang.PUBLIC_USERS U, yjtang.PUBLIC_FRIENDS F
+         WHERE U.user_id = F.user1_id
+         UNION
+         SELECT U.user_id, F.user1_id AS friend_id
+         FROM yjtang.PUBLIC_USERS U, yjtang.PUBLIC_FRIENDS F
+         WHERE U.user_id = F.user2_id;
+        */
+        ResultSet rst0 = stmt.executeQuery("CREATE OR REPLACE VIEW getfriend AS\n" +
+                "SELECT U.user_id, F.user2_id AS friend_id\n" +
+                "FROM yjtang.PUBLIC_USERS U, yjtang.PUBLIC_FRIENDS F\n" +
+                "WHERE U.user_id = F.user1_id\n" +
+                "UNION\n" +
+                "SELECT U.user_id, F.user1_id AS friend_id\n" +
+                "FROM yjtang.PUBLIC_USERS U, yjtang.PUBLIC_FRIENDS F\n" +
+                "WHERE U.user_id = F.user2_id");
+        /*************************************************************************************/
+
+        /**************************************************************************************
+         CREATE OR REPLACE VIEW totalfriend AS
+         SELECT G1.user_id AS user1_id, G2.user_id AS user2_id, G1.friend_id
+         FROM getfriend G1, getfriend G2
+         WHERE G1.friend_id = G2.friend_id AND G1.user_id < G2.user_id;
+        */
+        ResultSet rst1 = stmt.executeQuery("CREATE OR REPLACE VIEW totalfriend AS\n" +
+                "SELECT G1.user_id AS user1_id, G2.user_id AS user2_id, G1.friend_id\n" +
+                "FROM getfriend G1, getfriend G2\n" +
+                "WHERE G1.friend_id = G2.friend_id AND G1.user_id < G2.user_id");
+        /*************************************************************************************/
+
+        /**************************************************************************************
+         CREATE OR REPLACE VIEW sharefriend AS
+         SELECT T.user1_id, T.user2_id, T.friend_id
+         FROM totalfriend T,
+         (SELECT user1_id, user2_id
+         FROM totalfriend
+         MINUS
+         SELECT user1_id, user2_id
+         FROM yjtang.PUBLIC_FRIENDS) D
+         WHERE T.user1_id = D.user1_id AND T.user2_id = D.user2_id;
+        */
+        ResultSet rst2 = stmt.executeQuery("CREATE OR REPLACE VIEW sharefriend AS\n" +
+                "SELECT T.user1_id, T.user2_id, T.friend_id\n" +
+                "FROM totalfriend T,\n" +
+                "(SELECT user1_id, user2_id\n" +
+                "FROM totalfriend\n" +
+                "MINUS\n" +
+                "SELECT user1_id, user2_id\n" +
+                "FROM yjtang.PUBLIC_FRIENDS) D\n" +
+                "WHERE T.user1_id = D.user1_id AND T.user2_id = D.user2_id");
+        /*************************************************************************************/
+
+        /**************************************************************************************
+         SELECT S.user1_id, U1.first_name, U1.last_name, S.user2_id, U2.first_name, U2.last_name, S.friend_id, U3.first_name, U3.last_name, C.countshare
+         FROM sharefriend S, yjtang.PUBLIC_USERS U1, yjtang.PUBLIC_USERS U2, yjtang.PUBLIC_USERS U3,
+         (SELECT user1_id, user2_id, countshare
+         FROM
+         (SELECT user1_id, user2_id, COUNT(*) AS countshare
+         FROM sharefriend
+         GROUP BY user1_id, user2_id
+         ORDER BY countshare DESC, user1_id ASC, user2_id ASC)
+         WHERE ROWNUM <= 2
+         ) C
+         WHERE C.user1_id = S.user1_id AND C.user2_id = S.user2_id AND U1.user_id = S.user1_id AND U2.user_id = S.user2_id AND U3.user_id = S.friend_id;
+        */
+        ResultSet rst = stmt.executeQuery("SELECT S.user1_id, U1.first_name, U1.last_name, " +
+                "S.user2_id, U2.first_name, U2.last_name, " +
+                "S.friend_id, U3.first_name, U3.last_name, C.countshare\n" +
+                "FROM sharefriend S, yjtang.PUBLIC_USERS U1, yjtang.PUBLIC_USERS U2, yjtang.PUBLIC_USERS U3, \n" +
+                "(SELECT user1_id, user2_id, countshare\n" +
+                "FROM\n" +
+                "(SELECT user1_id, user2_id, COUNT(*) AS countshare\n" +
+                "FROM sharefriend\n" +
+                "GROUP BY user1_id, user2_id\n" +
+                "ORDER BY countshare DESC, user1_id ASC, user2_id ASC)\n" +
+                "WHERE ROWNUM <= 2\n" +
+                ") C\n" +
+                "WHERE C.user1_id = S.user1_id AND C.user2_id = S.user2_id AND U1.user_id = S.user1_id AND U2.user_id = S.user2_id AND U3.user_id = S.friend_id");
+
+        try {
+            /*Long user1_id = 123L;
 		String user1FirstName = "Friend1FirstName";
 		String user1LastName = "Friend1LastName";
 		Long user2_id = 456L;
@@ -319,7 +403,33 @@ public class MyFakebookOracle extends FakebookOracle {
 		p.addSharedFriend(567L, "sharedFriend1FirstName", "sharedFriend1LastName");
 		p.addSharedFriend(678L, "sharedFriend2FirstName", "sharedFriend2LastName");
 		p.addSharedFriend(789L, "sharedFriend3FirstName", "sharedFriend3LastName");
-		this.suggestedFriendsPairs.add(p);
+		this.suggestedFriendsPairs.add(p);*/
+            while (rst.next()) {
+                FriendsPair p = new FriendsPair(rst.getLong(1), rst.getString(2), rst.getString(3),
+                        rst.getLong(4), rst.getString(5), rst.getString(6));
+                p.addSharedFriend(rst.getLong(7), rst.getString(8), rst.getString(9));
+                for (int i = 0; i < rst.getInt(10)-1; i++) {
+                    rst.next();
+                    p.addSharedFriend(rst.getLong(7), rst.getString(8), rst.getString(9));
+                }
+                this.suggestedFriendsPairs.add(p);
+            }
+        } catch (SQLException e) { /* print out an error message.*/
+            rst2.close();
+            rst1.close();
+            rst0.close();
+            closeEverything(rst, stmt);
+        }
+
+        rst2 = stmt.executeQuery("DROP VIEW sharefriend");
+        rst1 = stmt.executeQuery("DROP VIEW totalfriend");
+        rst0 = stmt.executeQuery("DROP VIEW getfriend");
+
+        rst.close();
+        rst2.close();
+        rst1.close();
+        rst0.close();
+        stmt.close();
 	}
 	
 	
