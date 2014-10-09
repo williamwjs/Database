@@ -9,8 +9,8 @@ import java.sql.SQLException;
 public class TestFakebookOracle {
 	
 	static String dataType = "PUBLIC"; 
-	static String oracleUserName = "uniqname"; //replace with your Oracle account name
-	static String password = "pwd"; //replace with your Oracle password
+	static String oracleUserName = "willwjs"; //replace with your Oracle account name
+	static String password = "eecs484"; //replace with your Oracle password
 	
 
 	public static void main(String[] args) {

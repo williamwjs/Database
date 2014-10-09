@@ -46,7 +46,25 @@ public class MyFakebookOracle extends FakebookOracle {
 		photoTableName = prefix+dataType+"_PHOTOS";
 		tagTableName = prefix+dataType+"_TAGS";
 	}
-	
+
+    public static void closeEverything(ResultSet rs, Statement stmt) {
+        if (rs != null) {
+            try {
+                rs.close();
+            } catch (SQLException e) { }
+        }
+        if (stmt != null) {
+            try {
+                stmt.close();
+            } catch (SQLException e) { }
+        }
+        /*if (con != null) {
+            try {
+                con.close();
+            } catch (SQLException e) { }
+        }*/
+    }
+
 	
 	@Override
 	// ***** Query 0 *****
@@ -145,9 +163,35 @@ public class MyFakebookOracle extends FakebookOracle {
 	//
 	public void lonelyFriends() throws SQLException {
 		// Find the following information from your database and store the information as shown 
-		this.lonelyFriends.add(new UserInfo(10L, "Billy", "SmellsFunny"));
+		/*this.lonelyFriends.add(new UserInfo(10L, "Billy", "SmellsFunny"));
 		this.lonelyFriends.add(new UserInfo(11L, "Jenny", "BadBreath"));
-		this.countLonelyFriends = 2;
+		this.countLonelyFriends = 2;*/
+        Statement stmt = oracleConnection.createStatement(ResultSet.TYPE_SCROLL_INSENSITIVE,
+                ResultSet.CONCUR_READ_ONLY);
+        ResultSet rst = stmt.executeQuery("SELECT U.user_id, U.first_name, U.last_name " +
+                "FROM yjtang.PUBLIC_USERS U " +
+                "MINUS " +
+                "SELECT U.user_id, U.first_name, U.last_name " +
+                "FROM yjtang.PUBLIC_USERS U, yjtang.PUBLIC_FRIENDS F " +
+                "WHERE U.user_id = F.user1_id OR U.user_id = F.user2_id");
+
+        try {
+            int count = 0;
+
+            while (rst.next()) {
+                this.lonelyFriends.add(new UserInfo(rst.getLong(1), rst.getString(2), rst.getString(3)));
+                count++;
+            }
+            this.countLonelyFriends = count;
+        } catch (SQLException e) { /* print out an error message.*/
+
+        }
+        finally {
+            closeEverything(rst, stmt);
+        }
+
+        rst.close();
+        stmt.close();
 	}
 	 
 
@@ -168,8 +212,8 @@ public class MyFakebookOracle extends FakebookOracle {
 	// Find the top-n photos based on the number of tagged users
 	// If there are ties, choose the photo with the smaller numeric PhotoID first
 	// 
-	public void findPhotosWithMostTags(int n) throws SQLException { 
-		String photoId = "1234567";
+	public void findPhotosWithMostTags(int n) throws SQLException { //????????????
+		/*String photoId = "1234567";
 		String albumId = "123456789";
 		String albumName = "album1";
 		String photoCaption = "caption1";
@@ -178,7 +222,41 @@ public class MyFakebookOracle extends FakebookOracle {
 		TaggedPhotoInfo tp = new TaggedPhotoInfo(p);
 		tp.addTaggedUser(new UserInfo(12345L, "taggedUserFirstName1", "taggedUserLastName1"));
 		tp.addTaggedUser(new UserInfo(12345L, "taggedUserFirstName2", "taggedUserLastName2"));
-		this.photosWithMostTags.add(tp);
+		this.photosWithMostTags.add(tp);*/
+        Statement stmt = oracleConnection.createStatement(ResultSet.TYPE_SCROLL_INSENSITIVE,
+                ResultSet.CONCUR_READ_ONLY);
+        ResultSet rst = stmt.executeQuery("SELECT P.photo_id, P.album_id, A.album_name, P.photo_caption, P.photo_link, U.user_id, U.first_name, U.last_name, C.tag_count\n" +
+                "FROM yjtang.PUBLIC_PHOTOS P, yjtang.PUBLIC_ALBUMS A, yjtang.PUBLIC_USERS U, yjtang.PUBLIC_TAGS T,\n" +
+                "(SELECT P.photo_id, B.tag_count\n" +
+                "FROM yjtang.PUBLIC_PHOTOS P, \n" +
+                "(SELECT tag_photo_id, COUNT(*) AS tag_count\n" +
+                "FROM yjtang.PUBLIC_TAGS\n" +
+                "GROUP BY tag_photo_id\n" +
+                "ORDER BY tag_count DESC, tag_photo_id ASC) B\n" +
+                "WHERE ROWNUM <= " + n + " AND B.tag_photo_id = P.photo_id) C\n" +
+                "WHERE C.photo_id = P.photo_id AND P.album_id = A.album_id AND T.tag_photo_id = P.photo_id AND U.user_id = T.tag_subject_id");
+
+        try {
+            while (rst.next()) {
+                PhotoInfo p = new PhotoInfo(rst.getString(1), rst.getString(2),
+                        rst.getString(3), rst.getString(4), rst.getString(5));
+                TaggedPhotoInfo tp = new TaggedPhotoInfo(p);
+                tp.addTaggedUser(new UserInfo(rst.getLong(6), rst.getString(7), rst.getString(8)));
+                for (int i = 0; i < rst.getInt(9)-1; i++) {
+                    rst.next();
+                    tp.addTaggedUser(new UserInfo(rst.getLong(6), rst.getString(7), rst.getString(8)));
+                }
+                this.photosWithMostTags.add(tp);
+            }
+        } catch (SQLException e) { /* print out an error message.*/
+
+        }
+        finally {
+            closeEverything(rst, stmt);
+        }
+
+        rst.close();
+        stmt.close();
 	}
 
 	
