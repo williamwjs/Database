@@ -322,11 +322,11 @@ public class MyFakebookOracle extends FakebookOracle {
         */
         ResultSet rst0 = stmt.executeQuery("CREATE OR REPLACE VIEW getfriend AS\n" +
                 "SELECT U.user_id, F.user2_id AS friend_id\n" +
-                "FROM yjtang.PUBLIC_USERS U, yjtang.PUBLIC_FRIENDS F\n" +
+                "FROM " + userTableName + " U, " + friendsTableName + " F\n" +
                 "WHERE U.user_id = F.user1_id\n" +
                 "UNION\n" +
                 "SELECT U.user_id, F.user1_id AS friend_id\n" +
-                "FROM yjtang.PUBLIC_USERS U, yjtang.PUBLIC_FRIENDS F\n" +
+                "FROM " + userTableName + " U, " + friendsTableName + " F\n" +
                 "WHERE U.user_id = F.user2_id");
         /*************************************************************************************/
 
@@ -360,7 +360,7 @@ public class MyFakebookOracle extends FakebookOracle {
                 "FROM totalfriend\n" +
                 "MINUS\n" +
                 "SELECT user1_id, user2_id\n" +
-                "FROM yjtang.PUBLIC_FRIENDS) D\n" +
+                "FROM " + friendsTableName + ") D\n" +
                 "WHERE T.user1_id = D.user1_id AND T.user2_id = D.user2_id");
         /*************************************************************************************/
 
@@ -380,7 +380,7 @@ public class MyFakebookOracle extends FakebookOracle {
         ResultSet rst = stmt.executeQuery("SELECT S.user1_id, U1.first_name, U1.last_name, " +
                 "S.user2_id, U2.first_name, U2.last_name, " +
                 "S.friend_id, U3.first_name, U3.last_name, C.countshare\n" +
-                "FROM sharefriend S, yjtang.PUBLIC_USERS U1, yjtang.PUBLIC_USERS U2, yjtang.PUBLIC_USERS U3, \n" +
+                "FROM sharefriend S, " + userTableName + " U1, " + userTableName + " U2, " + userTableName + " U3, \n" +
                 "(SELECT user1_id, user2_id, countshare\n" +
                 "FROM\n" +
                 "(SELECT user1_id, user2_id, COUNT(*) AS countshare\n" +
@@ -390,6 +390,7 @@ public class MyFakebookOracle extends FakebookOracle {
                 "WHERE ROWNUM <= 2\n" +
                 ") C\n" +
                 "WHERE C.user1_id = S.user1_id AND C.user2_id = S.user2_id AND U1.user_id = S.user1_id AND U2.user_id = S.user2_id AND U3.user_id = S.friend_id");
+        /*************************************************************************************/
 
         try {
             /*Long user1_id = 123L;
