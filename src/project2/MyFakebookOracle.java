@@ -602,14 +602,42 @@ public class MyFakebookOracle extends FakebookOracle {
 	//  
 	//
 	public void findPotentialSiblings() throws SQLException {
-		Long user1_id = 123L;
-		String user1FirstName = "Friend1FirstName";
-		String user1LastName = "Friend1LastName";
-		Long user2_id = 456L;
-		String user2FirstName = "Friend2FirstName";
-		String user2LastName = "Friend2LastName";
-		SiblingInfo s = new SiblingInfo(user1_id, user1FirstName, user1LastName, user2_id, user2FirstName, user2LastName);
-		this.siblings.add(s);
+        Statement stmt = oracleConnection.createStatement(ResultSet.TYPE_SCROLL_INSENSITIVE,
+                ResultSet.CONCUR_READ_ONLY);
+        /**************************************************************************************
+         select A.user_id AS USER1_id, B.user_id AS USER2_id
+         from yjtang.public_USERS A, yjtang.public_USERS B, yjtang.public_USER_HOMETOWN_CITY C, yjtang.public_USER_HOMETOWN_CITY D
+         WHERE A.user_id < B.user_id AND A.LAST_NAME = B.LAST_NAME
+           AND A.user_id = C.user_id AND B.user_id = D.user_id
+           AND C.HOMETOWN_CITY_ID = D.HOMETOWN_CITY_ID
+           AND abs(A.year_of_birth - B.year_of_birth) < 10
+         Intersect
+         select USER1_id, USER2_id from yjtang.public_FRIENDS
+         order by USER1_id, USER2_id;
+        */
+        ResultSet rst = stmt.executeQuery("Select Temp.user1_id, A.first_name, A.last_name, Temp.user2_id, "
+                + " B.first_name, B.last_name from " + userTableName + " A, "
+                + userTableName + " B, (select A.user_id AS user1_id, B.user_id AS user2_id from "
+                + userTableName + " A," + userTableName + " B, " + hometownCityTableName + " C, "
+                + hometownCityTableName + " D WHERE A.user_id < B.user_id AND A.LAST_NAME = B.LAST_NAME "
+                + "AND A.user_id = C.user_id AND B.user_id = D.user_id "
+                + "AND C.HOMETOWN_CITY_ID = D.HOMETOWN_CITY_ID "
+                + "AND abs(A.year_of_birth - B.year_of_birth) < 10 Intersect "
+                + "select USER1_id, USER2_id from " + friendsTableName + " order by user1_id, "
+                + "user2_id ) Temp where Temp.user1_id = A.user_id "
+                + "and Temp.user2_id = B.user_id");
+
+        try {
+            while (rst.next()) {
+                SiblingInfo s = new SiblingInfo(rst.getLong(1), rst.getString(2),
+                        rst.getString(3), rst.getLong(4), rst.getString(5), rst.getString(6));
+                this.siblings.add(s);}
+        } catch (SQLException e) { /* print out an error message.*/
+            closeEverything(rst, stmt);
+        }
+
+        rst.close();
+        stmt.close();
 	}
 	
 }
