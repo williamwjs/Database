@@ -415,6 +415,7 @@ public class MyFakebookOracle extends FakebookOracle {
 	public void suggestFriendsByMutualFriends(int n) throws SQLException {
         Statement stmt = oracleConnection.createStatement(ResultSet.TYPE_SCROLL_INSENSITIVE,
                 ResultSet.CONCUR_READ_ONLY);
+        //Get all the friends of all the users
         /**************************************************************************************
          CREATE OR REPLACE VIEW getfriend AS
          SELECT U.user_id, F.user2_id AS friend_id
@@ -435,6 +436,7 @@ public class MyFakebookOracle extends FakebookOracle {
                 "WHERE U.user_id = F.user2_id");
         /*************************************************************************************/
 
+        //Get pairs of people who have the same friends and user1_id is less than user2_id
         /**************************************************************************************
          CREATE OR REPLACE VIEW totalfriend AS
          SELECT G1.user_id AS user1_id, G2.user_id AS user2_id, G1.friend_id
@@ -447,6 +449,7 @@ public class MyFakebookOracle extends FakebookOracle {
                 "WHERE G1.friend_id = G2.friend_id AND G1.user_id < G2.user_id");
         /*************************************************************************************/
 
+        //Wipe out the pairs who have already friends
         /**************************************************************************************
          CREATE OR REPLACE VIEW sharefriend AS
          SELECT T.user1_id, T.user2_id, T.friend_id
@@ -469,6 +472,7 @@ public class MyFakebookOracle extends FakebookOracle {
                 "WHERE T.user1_id = D.user1_id AND T.user2_id = D.user2_id");
         /*************************************************************************************/
 
+        //Count the number of friends they share and output the top n
         /**************************************************************************************
          SELECT S.user1_id, U1.first_name, U1.last_name, S.user2_id, U2.first_name, U2.last_name, S.friend_id, U3.first_name, U3.last_name, C.countshare
          FROM sharefriend S, yjtang.PUBLIC_USERS U1, yjtang.PUBLIC_USERS U2, yjtang.PUBLIC_USERS U3,
@@ -493,7 +497,7 @@ public class MyFakebookOracle extends FakebookOracle {
                 "FROM sharefriend\n" +
                 "GROUP BY user1_id, user2_id\n" +
                 "ORDER BY countshare DESC, user1_id ASC, user2_id ASC)\n" +
-                "WHERE ROWNUM <= 2\n" +
+                "WHERE ROWNUM <= " + n + "\n" +
                 ") C\n" +
                 "WHERE C.user1_id = S.user1_id AND C.user2_id = S.user2_id " +
                 "AND U1.user_id = S.user1_id AND U2.user_id = S.user2_id " +
@@ -533,8 +537,170 @@ public class MyFakebookOracle extends FakebookOracle {
 	// on the same day, then assume that the one with the larger user_id is older
 	//
 	public void findAgeInfo(Long user_id) throws SQLException {
-		this.oldestFriend = new UserInfo(1L, "Oliver", "Oldham");
-		this.youngestFriend = new UserInfo(25L, "Yolanda", "Young");
+        Statement stmt = oracleConnection.createStatement(ResultSet.TYPE_SCROLL_INSENSITIVE,
+                ResultSet.CONCUR_READ_ONLY);
+
+        //------------Find the friends of given person-----
+        /**************************************************************************************
+         create view Friend as
+         select A.USER2_id as user_id, B.year_of_birth, B.month_of_birth, B.day_of_birth
+         from yjtang.public_FRIENDS A, yjtang.public_USERS B
+         WHERE A.USER1_ID = 215 AND A.USER2_id = B.user_id
+         UNION
+         select A.USER1_id as user_id, B.year_of_birth, B.month_of_birth, B.day_of_birth
+         from yjtang.public_FRIENDS A, yjtang.public_USERS B
+         WHERE A.USER2_ID = 215 AND A.USER1_id = B.user_id;
+        */
+        ResultSet rst = stmt.executeQuery("create or replace view Friend as "
+                + "select A.USER2_id as user_id, B.year_of_birth, B.month_of_birth, "
+                + "B.day_of_birth from " + friendsTableName + " A, " +  userTableName + " B "
+                + "WHERE A.USER1_ID = " + user_id + " AND A.USER2_id = B.user_id UNION "
+                + "select A.USER1_id as user_id, B.year_of_birth, B.month_of_birth, B.day_of_birth  from "
+                + friendsTableName + " A, " + userTableName+ " B WHERE A.USER2_ID = "
+                + user_id + " AND A.USER1_id = B.user_id");
+        /*************************************************************************************/
+
+        //	---------Find the oldest friend------------------
+        //	---------find the oldest year--------------------
+        /**************************************************************************************
+         create view Friend_year as
+         select user_id, month_of_birth, day_of_birth from Friend
+         where year_of_birth =
+         ( select MIN(year_of_birth) from Friend );
+        */
+        rst = stmt.executeQuery("create or replace view Friend_year as "
+                + "select user_id, month_of_birth, day_of_birth from Friend where "
+                + "year_of_birth = ( select MIN(year_of_birth) from Friend )");
+        /*************************************************************************************/
+
+        //---------find the oldest month--------------------
+        /**************************************************************************************
+         create view Friend_month as
+         select user_id, day_of_birth from Friend_year
+         where month_of_birth =
+         ( select MIN(month_of_birth) from Friend_year);
+        */
+        rst = stmt.executeQuery("create or replace view Friend_month as "
+                + "select user_id, day_of_birth from Friend_year where "
+                + "month_of_birth = ( select MIN(month_of_birth) from Friend_year)");
+        /*************************************************************************************/
+
+        //	---------find the oldest day--------------------
+        /**************************************************************************************
+         create view Friend_day as
+         select user_id from Friend_month
+         where day_of_birth =
+         ( select MIN(day_of_birth) from Friend_month);
+        */
+        rst = stmt.executeQuery("create or replace view Friend_day as "
+                + "select user_id from Friend_month where "
+                + "day_of_birth = ( select MIN(day_of_birth) from Friend_month)");
+        /*************************************************************************************/
+
+        //	---------find the larger user_id--------------------
+        /**************************************************************************************
+         create view Friend_id as
+         select user_id from Friend_day
+         where user_id =
+         ( select MAX(user_id) from Friend_day);
+        */
+        rst = stmt.executeQuery("create or replace view Friend_id as "
+                + "select user_id from Friend_day where user_id = "
+                + "( select MAX(user_id) from Friend_day)");
+        /*************************************************************************************/
+
+        //	----------print out----------------------------
+        /**************************************************************************************
+         select A.first_name, A.LAST_NAME, A.user_id from yjtang.public_USERS A, Friend_id B
+         WHERE A.user_id = B.USER_ID;
+        */
+        rst = stmt.executeQuery("select A.first_name, A.LAST_NAME, A.user_id from "
+                + userTableName + " A, Friend_id B WHERE A.user_id = B.USER_ID");
+        /*************************************************************************************/
+
+        try {
+            while (rst.next()) {
+                this.oldestFriend = new UserInfo(rst.getLong(3), rst.getString(1), rst.getString(2));
+            }
+        } catch (SQLException e) { /* print out an error message.*/
+            closeEverything(rst, stmt);
+        }
+
+
+        //	---------Find the youngest friend------------------
+        //	---------find the youngest year--------------------
+        /**************************************************************************************
+         create view Friend_year as
+         select user_id, month_of_birth, day_of_birth from Friend
+         where year_of_birth =
+         ( select MAX(year_of_birth) from Friend );
+        */
+        rst = stmt.executeQuery("create or replace view Friend_year as "
+                + "select user_id, month_of_birth, day_of_birth from Friend where "
+                + "year_of_birth = ( select MAX(year_of_birth) from Friend )");
+        /*************************************************************************************/
+
+        //---------find the youngest month--------------------
+        /**************************************************************************************
+         create view Friend_month as
+         select user_id, day_of_birth from Friend_year
+         where month_of_birth =
+         ( select MAX(month_of_birth) from Friend_year);
+        */
+        rst = stmt.executeQuery("create or replace view Friend_month as "
+                + "select user_id, day_of_birth from Friend_year where "
+                + "month_of_birth = ( select MAX(month_of_birth) from Friend_year)");
+        /*************************************************************************************/
+
+        //	---------find the youngest day--------------------
+        /**************************************************************************************
+         create view Friend_day as
+         select user_id from Friend_month
+         where day_of_birth =
+         ( select MAX(day_of_birth) from Friend_month);
+        */
+        rst = stmt.executeQuery("create or replace view Friend_day as "
+                + "select user_id from Friend_month where "
+                + "day_of_birth = ( select MAX(day_of_birth) from Friend_month)");
+        /*************************************************************************************/
+
+        //	---------find the smaller user_id--------------------
+        /**************************************************************************************
+         create view Friend_id as
+         select user_id from Friend_day
+         where user_id =
+         ( select MIN(user_id) from Friend_day);
+        */
+        rst = stmt.executeQuery("create or replace view Friend_id as "
+                + "select user_id from Friend_day where user_id = "
+                + "( select MIN(user_id) from Friend_day)");
+        /*************************************************************************************/
+
+        //	----------print out----------------------------
+        /**************************************************************************************
+         select A.first_name, A.LAST_NAME, A.user_id from yjtang.public_USERS A, Friend_id B
+         WHERE A.user_id = B.USER_ID;
+        */
+        rst = stmt.executeQuery("select A.first_name, A.LAST_NAME, A.user_id from "
+                + userTableName + " A, Friend_id B WHERE A.user_id = B.USER_ID");
+        /*************************************************************************************/
+
+        try {
+            while (rst.next()) {
+                this.youngestFriend = new UserInfo(rst.getLong(3), rst.getString(1), rst.getString(2));
+            }
+        } catch (SQLException e) { /* print out an error message.*/
+            closeEverything(rst, stmt);
+        }
+
+        rst = stmt.executeQuery("Drop view Friend_id");
+        rst = stmt.executeQuery("Drop view Friend_day");
+        rst = stmt.executeQuery("Drop view Friend_month");
+        rst = stmt.executeQuery("Drop view Friend_year");
+        rst = stmt.executeQuery("Drop view Friend");
+
+        rst.close();
+        stmt.close();
 	}
 	
 	
