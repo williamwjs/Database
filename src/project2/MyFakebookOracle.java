@@ -274,8 +274,31 @@ public class MyFakebookOracle extends FakebookOracle {
 	// (I.e., current_city = hometown_city)
 	//	
 	public void liveAtHome() throws SQLException {
-		this.liveAtHome.add(new UserInfo(11L, "Heather", "Hometowngirl"));
-		this.countLiveAtHome = 1;
+        Statement stmt = oracleConnection.createStatement(ResultSet.TYPE_SCROLL_INSENSITIVE,
+                ResultSet.CONCUR_READ_ONLY);
+        /**************************************************************************************
+         select A.user_id, A.first_name, A.LAST_NAME
+         from yjtang.public_USERS A, yjtang.public_USER_CURRENT_CITY B, yjtang.public_USER_HOMETOWN_CITY C
+         where A.user_id = B.user_id AND B.user_id = C.user_id AND B.current_city_id = C.HOMETOWN_CITY_ID;
+        */
+        ResultSet rst = stmt.executeQuery("select A.user_id, A.first_name, A.LAST_NAME from "
+                + userTableName + " A," + currentCityTableName + " B," + hometownCityTableName + " C"
+                + " where A.user_id = B.user_id AND B.user_id = C.user_id "
+                + " AND B.current_city_id = C.HOMETOWN_CITY_ID ");
+        /*************************************************************************************/
+
+        this.countLiveAtHome = 0;
+        try {
+            while (rst.next()) {
+                this.liveAtHome.add(new UserInfo(rst.getLong(1), rst.getString(2), rst.getString(3)));
+                this.countLiveAtHome++;
+            }
+        } catch (SQLException e) { /* print out an error message.*/
+            closeEverything(rst, stmt);
+        }
+
+        rst.close();
+        stmt.close();
 	}
 
 
