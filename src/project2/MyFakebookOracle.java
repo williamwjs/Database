@@ -169,10 +169,10 @@ public class MyFakebookOracle extends FakebookOracle {
         Statement stmt = oracleConnection.createStatement(ResultSet.TYPE_SCROLL_INSENSITIVE,
                 ResultSet.CONCUR_READ_ONLY);
         ResultSet rst = stmt.executeQuery("SELECT U.user_id, U.first_name, U.last_name " +
-                "FROM yjtang.PUBLIC_USERS U " +
+                "FROM " + userTableName + " U " +
                 "MINUS " +
                 "SELECT U.user_id, U.first_name, U.last_name " +
-                "FROM yjtang.PUBLIC_USERS U, yjtang.PUBLIC_FRIENDS F " +
+                "FROM " + userTableName + " U, " + friendsTableName + " F " +
                 "WHERE U.user_id = F.user1_id OR U.user_id = F.user2_id");
 
         try {
@@ -224,13 +224,13 @@ public class MyFakebookOracle extends FakebookOracle {
 		tp.addTaggedUser(new UserInfo(12345L, "taggedUserFirstName2", "taggedUserLastName2"));
 		this.photosWithMostTags.add(tp);*/
         Statement stmt = oracleConnection.createStatement(ResultSet.TYPE_SCROLL_INSENSITIVE,
-                ResultSet.CONCUR_READ_ONLY);
+                    ResultSet.CONCUR_READ_ONLY);
         ResultSet rst = stmt.executeQuery("SELECT P.photo_id, P.album_id, A.album_name, P.photo_caption, P.photo_link, U.user_id, U.first_name, U.last_name, C.tag_count\n" +
-                "FROM yjtang.PUBLIC_PHOTOS P, yjtang.PUBLIC_ALBUMS A, yjtang.PUBLIC_USERS U, yjtang.PUBLIC_TAGS T,\n" +
+                "FROM " + photoTableName + " P, " + albumTableName + " A, " + userTableName + " U, " + tagTableName + " T,\n" +
                 "(SELECT P.photo_id, B.tag_count\n" +
-                "FROM yjtang.PUBLIC_PHOTOS P, \n" +
+                "FROM " + photoTableName + " P, \n" +
                 "(SELECT tag_photo_id, COUNT(*) AS tag_count\n" +
-                "FROM yjtang.PUBLIC_TAGS\n" +
+                "FROM " + tagTableName + "\n" +
                 "GROUP BY tag_photo_id\n" +
                 "ORDER BY tag_count DESC, tag_photo_id ASC) B\n" +
                 "WHERE ROWNUM <= " + n + " AND B.tag_photo_id = P.photo_id) C\n" +
@@ -355,23 +355,21 @@ public class MyFakebookOracle extends FakebookOracle {
 		this.popularCityNames.add("Ypsilanti");*/
         Statement stmt = oracleConnection.createStatement(ResultSet.TYPE_SCROLL_INSENSITIVE,
                 ResultSet.CONCUR_READ_ONLY);
-        ResultSet rst = stmt.executeQuery("CREATE VIEW numcity AS\n" +
+        stmt.executeQuery("CREATE VIEW numcity AS\n" +
                 "SELECT event_city_id, COUNT(*) AS city_events\n" +
-                "FROM yjtang.PUBLIC_USER_EVENTS\n" +
-                "GROUP BY event_city_id;\n" +
-                "\n" +
-                "SELECT C.city_name, N.city_events\n" +
-                "FROM yjtang.PUBLIC_CITIES C, numcity N,\n" +
+                "FROM " + eventTableName + "\n" +
+                "GROUP BY event_city_id");
+        ResultSet rst = stmt.executeQuery("SELECT C.city_name, N.city_events\n" +
+                "FROM " + cityTableName + " C, numcity N,\n" +
                 "(SELECT MAX(city_events) AS maxcity FROM numcity) M\n" +
-                "WHERE N.city_events = M. maxcity AND N.event_city_id = C.city_id;\n" +
-                "\n" +
-                "DROP VIEW numcity;");
+                "WHERE N.city_events = M. maxcity AND N.event_city_id = C.city_id");
 
         try {
             while (rst.next()) {
                 this.popularCityNames.add(rst.getString(1));
                 this.eventCount = rst.getInt(2);
             }
+            stmt.executeQuery("DROP VIEW numcity");
         } catch (SQLException e) { /* print out an error message.*/
 
         }
