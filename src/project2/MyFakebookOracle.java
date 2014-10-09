@@ -373,25 +373,123 @@ public class MyFakebookOracle extends FakebookOracle {
 	// (ii) If there are still ties, choose the pair with the smaller user_id for the female
 	// (iii) If there are still ties, choose the pair with the smaller user_id for the male
 	//
-	public void matchMaker(int n, int yearDiff) throws SQLException { 
-		Long girlUserId = 123L;
-		String girlFirstName = "girlFirstName";
-		String girlLastName = "girlLastName";
-		int girlYear = 1988;
-		Long boyUserId = 456L;
-		String boyFirstName = "boyFirstName";
-		String boyLastName = "boyLastName";
-		int boyYear = 1986;
-		MatchPair mp = new MatchPair(girlUserId, girlFirstName, girlLastName, 
-				girlYear, boyUserId, boyFirstName, boyLastName, boyYear);
-		String sharedPhotoId = "12345678";
-		String sharedPhotoAlbumId = "123456789";
-		String sharedPhotoAlbumName = "albumName";
-		String sharedPhotoCaption = "caption";
-		String sharedPhotoLink = "link";
-		mp.addSharedPhoto(new PhotoInfo(sharedPhotoId, sharedPhotoAlbumId, 
-				sharedPhotoAlbumName, sharedPhotoCaption, sharedPhotoLink));
-		this.bestMatches.add(mp);
+	public void matchMaker(int n, int yearDiff) throws SQLException {
+        Statement stmt = oracleConnection.createStatement(ResultSet.TYPE_SCROLL_INSENSITIVE,
+                ResultSet.CONCUR_READ_ONLY);
+        /**************************************************************************************
+         create or replace view Temp as
+         select A.user_id as USER1_id, B.user_id as USER2_id
+         from yjtang.public_USERS A, yjtang.public_USERS B
+         WHERE A.gender = 'female' and B.gender = 'male'
+         and abs(A.year_of_birth-B.year_of_birth) < 2
+         MINUS
+         select USER1_ID, USER2_id from yjtang.public_FRIENDS
+         MINUS
+         select USER2_id as USER1_ID, USER1_ID as USER2_id from yjtang.public_FRIENDS;
+        */
+        ResultSet rst = stmt.executeQuery(" create or replace view Temp as select A.user_id as user1_id, "
+                + " B.user_id as user2_id from " + userTableName + " A, " + userTableName + " B "
+                + " WHERE A.gender = 'female' and B.gender = 'male' "
+                + " and abs(A.year_of_birth-B.year_of_birth) < " + yearDiff + " MINUS "
+                + " select USER1_ID, USER2_id from " + friendsTableName + " MINUS "
+                + " select USER2_id as USER1_ID, USER1_ID as USER2_id from " + friendsTableName);
+        /*************************************************************************************/
+
+        /**************************************************************************************
+         create or replace view SharePhoto as
+         select A.tag_subject_id as user1_id, B.tag_subject_id as user2_id,
+         A.tag_photo_id as photo_id
+         from yjtang.public_tags A, yjtang.public_tags B, Temp C
+         where A.tag_photo_id = B.tag_photo_id
+         and C.USER1_ID = A.tag_subject_id and C.USER2_id = B.tag_subject_id;
+        */
+        rst = stmt.executeQuery(" create or replace view SharePhoto as "
+                + "select A.tag_subject_id as user1_id, B.tag_subject_id as user2_id, "
+                + "A.tag_photo_id as photo_id from " + tagTableName + " A, "
+                + tagTableName + " B, Temp C where A.tag_photo_id = B.tag_photo_id "
+                + "and C.USER1_ID = A.tag_subject_id and C.USER2_id = B.tag_subject_id");
+        /*************************************************************************************/
+
+        /**************************************************************************************
+         create or replace view PhotoCount as
+         select user1_id, user2_id, count(*) as num from SharePhoto
+         group by user1_id, user2_id
+         order by num desc, user1_id asc, user2_id asc;
+        */
+        rst = stmt.executeQuery(" create or replace view PhotoCount as "
+                + "select user1_id, user2_id, count(*) as num from SharePhoto "
+                + "group by user1_id, user2_id "
+                + "order by num desc, user1_id asc, user2_id asc");
+
+        /**************************************************************************************
+         select P.user1_id, A.first_name, A.last_name, A.year_of_birth,
+         P.user2_id, B.first_name, B.last_name, B.year_of_birth,
+         PH.photo_id, PH.album_id, AL.album_name, PH.photo_caption, PH.photo_link
+         FROM PhotoCount P, SharePhoto S, yjtang.public_USERS A,
+         yjtang.public_USERS B, yjtang.public_photos PH, yjtang.public_albums AL
+         where P.user1_id = A.user_id AND P.user2_id = B.user_id
+         AND P.user1_id = S.user1_id AND P.user2_id = S.user2_id
+         AND S.photo_id = PH.photo_id AND PH.album_id = AL.album_id
+         AND rownum < n;
+        */
+        rst = stmt.executeQuery(" select P.user1_id, A.first_name, A.last_name, A.year_of_birth,"
+                + " P.user2_id, B.first_name, B.last_name, B.year_of_birth, PH.photo_id, "
+                + "PH.album_id, AL.album_name, PH.photo_caption, PH.photo_link "
+                + "FROM PhotoCount P, SharePhoto S, " + userTableName + " A,"
+                + userTableName + " B," + photoTableName + " PH," + albumTableName + " AL "
+                + "where P.user1_id = A.user_id AND P.user2_id = B.user_id "
+                + "AND P.user1_id = S.user1_id AND P.user2_id = S.user2_id "
+                + "AND S.photo_id = PH.photo_id AND PH.album_id = AL.album_id AND rownum < "
+                + n );
+        /*************************************************************************************/
+
+        Long girlUserId = 0L;
+        String girlFirstName = "null";
+        String girlLastName = "null";
+        int girlYear = 0;
+        Long boyUserId = 0L;
+        String boyFirstName = "null";
+        String boyLastName = "null";
+        int boyYear = 0;
+        MatchPair mp = new MatchPair(girlUserId, girlFirstName, girlLastName,
+                girlYear, boyUserId, boyFirstName, boyLastName, boyYear);
+        String sharedPhotoId = "null";
+        String sharedPhotoAlbumId = "null";
+        String sharedPhotoAlbumName = "null";
+        String sharedPhotoCaption = "null";
+        String sharedPhotoLink = "null";
+        mp.addSharedPhoto(new PhotoInfo(sharedPhotoId, sharedPhotoAlbumId,
+                sharedPhotoAlbumName, sharedPhotoCaption, sharedPhotoLink));
+
+        try {while (rst.next()) {
+            girlUserId = rst.getLong(1);
+            girlFirstName = rst.getString(2);
+            girlLastName = rst.getString(3);
+            girlYear = rst.getInt(4);
+            boyUserId = rst.getLong(5);
+            boyFirstName = rst.getString(6);
+            boyLastName = rst.getString(7);
+            boyYear = rst.getInt(8);
+            mp = new MatchPair(girlUserId, girlFirstName, girlLastName,
+                    girlYear, boyUserId, boyFirstName, boyLastName, boyYear);
+            sharedPhotoId = rst.getString(9);
+            sharedPhotoAlbumId = rst.getString(10);
+            sharedPhotoAlbumName = rst.getString(11);
+            sharedPhotoCaption = rst.getString(12);
+            sharedPhotoLink = rst.getString(13);
+            mp.addSharedPhoto(new PhotoInfo(sharedPhotoId, sharedPhotoAlbumId,
+                    sharedPhotoAlbumName, sharedPhotoCaption, sharedPhotoLink));
+            this.bestMatches.add(mp);
+        }
+            rst = stmt.executeQuery("drop view PhotoCount");
+            rst = stmt.executeQuery("drop view SharePhoto");
+            rst = stmt.executeQuery("drop view Temp");
+        } catch (SQLException e) { /* print out an error message.*/
+            closeEverything(rst, stmt);
+        }
+
+        rst.close();
+        stmt.close();
 	}
 
 	
